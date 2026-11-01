@@ -557,10 +557,105 @@ fun AppIcon(app: AppInfo, onClick: () -> Unit) {
     }
 }
 
+
 @Composable
 fun FolderIcon(folder: FolderInfo, onClick: () -> Unit) {
-    var pressed by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.85f else 1f,
-        animationSpec = spring(dampingRatio = 0.5f, stiffness = 380f),
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onClick() }
+    ) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(RoundedCornerShape(17.dp))
+                .background(Color(0xFF30303A))
+                .border(1.dp, Color.White.copy(0.2f), RoundedCornerShape(17.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "▦",
+                color = Color.White,
+                fontSize = 34.sp
+            )
+        }
+        Spacer(Modifier.height(7.dp))
+        Text(
+            text = folder.name,
+            color = Color.White,
+            fontSize = 11.sp
+        )
+    }
+}
+
+@Composable
+fun LiquidGlassFolderOverlay(
+    folder: FolderInfo,
+    onDismiss: () -> Unit,
+    onAppClick: (AppInfo) -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(28.dp))
+                .background(Color(0xFF191923))
+                .padding(20.dp)
+        ) {
+            Text(
+                folder.name,
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(Modifier.height(20.dp))
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                modifier = Modifier.heightIn(max = 400.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp)
+            ) {
+                items(folder.apps) { app ->
+                    AppIcon(app = app) {
+                        onAppClick(app)
+                    }
+                }
+            }
+        }
+    }
+}
+
+fun loadInstalledApps(context: android.content.Context): List<AppInfo> {
+    val pm = context.packageManager
+    val intent = Intent(Intent.ACTION_MAIN)
+        .addCategory(Intent.CATEGORY_LAUNCHER)
+
+    return pm.queryIntentActivities(intent, 0)
+        .filter { it.activityInfo.packageName != context.packageName }
+        .map { info ->
+            AppInfo(
+                label = info.loadLabel(pm).toString(),
+                packageName = info.activityInfo.packageName,
+                activityName = info.activityInfo.name,
+                icon = runCatching {
+                    info.loadIcon(pm).toBitmap(96, 96)
+                }.getOrNull()
+            )
+        }
+        .distinctBy { it.packageName }
+        .sortedBy { it.label.lowercase() }
+}
+
+fun launchApp(context: android.content.Context, app: AppInfo) {
+    val intent = Intent(Intent.ACTION_MAIN).apply {
+        addCategory(Intent.CATEGORY_LAUNCHER)
+        setClassName(app.packageName, app.activityName)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    runCatching {
+        context.startActivity(intent)
+    }
+}
+
  
